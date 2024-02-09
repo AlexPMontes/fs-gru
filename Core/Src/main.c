@@ -76,6 +76,8 @@ uint8_t TxData_adc[6];
 uint8_t TxData_timer[4];
 
 
+uint32_t millis = 0;
+
 
 
 /* USER CODE END PFP */
@@ -302,13 +304,11 @@ static void MX_TIM14_Init(void)
   htim14.Instance = TIM14;
   htim14.Init.Prescaler = 0;
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim14.Init.Period = 65535;
+  htim14.Init.Period = 47999;
   htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+
+
   /* USER CODE BEGIN TIM14_Init 2 */
 
   /* USER CODE END TIM14_Init 2 */
@@ -367,24 +367,49 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		adc_2 = adc_values[1];
 		diff = adc_1 - adc_2;
 
+		__HAL_TIM_SET_COUNTER(&htim14, 0);
+		HAL_TIM_Base_Start_IT(&htim14);
+
 	    } else {
+	    	HAL_TIM_Base_Stop(&htim14);
+
 	    	adc_1 = adc_values[0];
 	    	adc_2 = adc_values[1];
 
-	    	TxData_adc[0]=diff;
-	    	TxData_adc[1]=diff >> 8;
+	    	TxData_adc[0]=(diff >> 8) & 0xFF;
+	    	TxData_adc[1]=diff & 0xFF;
 
-	    	TxData_adc[2]=adc_1;
-	    	TxData_adc[3]=adc_1 >> 8;
+	    	TxData_adc[2]=(adc_1 >> 8) & 0xFF;
+	    	TxData_adc[3]=adc_1 & 0xFF;
 
-	    	TxData_adc[4]=adc_2;
-	  	    TxData_adc[5]=adc_2 >> 8;
+	    	TxData_adc[4]=(adc_2 >> 8) & 0xFF;
+	  	    TxData_adc[5]=adc_2 & 0xFF;
 
+
+	  	    TxData_timer[0] = (millis >> 24) & 0xFF;
+	  	  	TxData_timer[1] = (millis >> 16) & 0xFF;
+	  	  	TxData_timer[2] = (millis >> 8) & 0xFF;
+	      	TxData_timer[3] = millis & 0xFF;
 
 	    	HAL_CAN_AddTxMessage(&hcan, &TxHeader_adc, TxData_adc, &TxMailBox);
 	    	HAL_CAN_AddTxMessage(&hcan, &TxHeader_timer, TxData_timer, &TxMailBox);
 
+	    	millis = 0;
+
 	    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* Prevent unused argument(s) compilation warning */
+	if (htim->Instance == TIM14)
+	{
+		millis++;
+	}
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIM_PeriodElapsedCallback could be implemented in the user file
+   */
 }
 /* USER CODE END 4 */
 
